@@ -175,11 +175,11 @@
     .gallery-panel.active { display:block; }
     .gallery-carousel-wrap { position:relative; overflow:hidden; }
     .gallery-carousel { display:flex; transition:transform .5s cubic-bezier(.25,.46,.45,.94); }
-    .gal-slide { flex:0 0 33.333%; padding:0 8px; transition:transform .5s ease, opacity .5s ease; transform:scale(.82); opacity:.4; }
+    .gal-slide { position:relative; flex:0 0 33.333%; padding:0 8px; transition:transform .5s ease, opacity .5s ease; transform:scale(.82); opacity:.4; }
     .gal-slide.gal-active { transform:scale(1); opacity:1; }
     .gal-slide img { width:100%; aspect-ratio:4/3; object-fit:cover; display:block; border-radius:var(--radius); border:1px solid var(--border); }
     .gal-slide-overlay { position:absolute; inset:0 8px; border-radius:var(--radius); background:linear-gradient(to top,rgba(0,0,0,.5) 0%,transparent 60%); transition:background .3s; }
-    .gal-slide.gal-active:hover .gal-slide-overlay { background:linear-gradient(to top,rgba(180,0,0,.45) 0%,rgba(0,0,0,.1) 100%); }
+    .gal-slide.gal-active:hover .gal-slide-overlay { background:linear-gradient(to top,rgba(30,111,255,.45) 0%,rgba(0,0,0,.1) 100%); }
     .gal-carousel-nav { display:flex; align-items:center; justify-content:center; gap:16px; margin-top:24px; }
     .gal-arrow { width:40px; height:40px; border-radius:50%; border:1px solid var(--border); background:var(--bg3); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
     .gal-arrow:hover { border-color:rgba(30,111,255,.5); background:rgba(30,111,255,.1); }
@@ -924,12 +924,23 @@ document.getElementById('galleryTabs').addEventListener('click', e => {
 
 /* ── Gallery infinite carousel ───────────────────────────────── */
 const galIdx = {};
-function galInit(id) {
+function galCenterPx(id, idxVal) {
   const el = document.getElementById(id);
+  const slide = el.querySelector('.gal-slide');
+  if (!slide || !slide.offsetWidth) return 0;
+  const slideW = slide.offsetWidth;
+  const wrapW = el.parentElement.offsetWidth;
+  return (wrapW - slideW) / 2 - idxVal * slideW;
+}
+function galApply(id, idxVal, animate) {
+  const el = document.getElementById(id);
+  el.style.transition = animate ? 'transform .5s cubic-bezier(.25,.46,.45,.94)' : 'none';
+  el.style.transform = `translateX(${galCenterPx(id, idxVal)}px)`;
+}
+function galInit(id) {
   galIdx[id] = 2;
-  el.style.transition = 'none';
-  el.style.transform = `translateX(-${(galIdx[id] - 1) * 33.333}%)`;
-  requestAnimationFrame(() => { el.style.transition = ''; });
+  galApply(id, 2, false);
+  requestAnimationFrame(() => { document.getElementById(id).style.transition = ''; });
   galUpdateActive(id);
 }
 function galUpdateActive(id) {
@@ -946,25 +957,23 @@ function galGo(id, dir) {
   const el = document.getElementById(id);
   const total = parseInt(el.dataset.total);
   galIdx[id] += dir;
-  el.style.transition = 'transform .5s cubic-bezier(.25,.46,.45,.94)';
-  el.style.transform = `translateX(-${(galIdx[id] - 1) * 33.333}%)`;
+  galApply(id, galIdx[id], true);
   galUpdateActive(id);
   el.addEventListener('transitionend', function handler() {
     el.removeEventListener('transitionend', handler);
-    if (galIdx[id] <= 1) {
-      galIdx[id] = total + 1;
-      el.style.transition = 'none';
-      el.style.transform = `translateX(-${(galIdx[id] - 1) * 33.333}%)`;
-      galUpdateActive(id);
-    } else if (galIdx[id] > total + 1) {
-      galIdx[id] = 2;
-      el.style.transition = 'none';
-      el.style.transform = `translateX(-${(galIdx[id] - 1) * 33.333}%)`;
-      galUpdateActive(id);
-    }
+    if (galIdx[id] <= 1)            galIdx[id] = total + 1;
+    else if (galIdx[id] > total + 1) galIdx[id] = 2;
+    else return;
+    galApply(id, galIdx[id], false);
+    galUpdateActive(id);
   });
 }
 document.querySelectorAll('.gallery-carousel').forEach(el => galInit(el.id));
+window.addEventListener('resize', () => {
+  document.querySelectorAll('.gallery-panel.active .gallery-carousel').forEach(el => {
+    if (galIdx[el.id] !== undefined) galApply(el.id, galIdx[el.id], false);
+  });
+});
 
 /* ── Testimonial carousel ────────────────────────────────────── */
 (function() {
